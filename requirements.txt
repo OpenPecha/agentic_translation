@@ -1,0 +1,9 @@
+langchain-anthropic
+pydantic
+typing-extensions
+tqdm
+pandas
+argparse
+ipython
+json
+getpass
