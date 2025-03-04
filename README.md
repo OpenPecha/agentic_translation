@@ -65,4 +65,4 @@ Pull requests and contributions are welcome. Please open an issue for discussion
 
 ## License
 
-MIT License
+MIT License![](blob:vscode-webview://0e354hastvqtolcub64vo6m69cahm8uc6d3ajjd1d6b92vblrh85/3a28f53e-bb10-4f1f-ad5a-61f5246e284a)
