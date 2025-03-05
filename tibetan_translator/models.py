@@ -1,3 +1,6 @@
+from typing import List, Literal, TypedDict
+from pydantic import BaseModel, Field
+
 class CommentaryVerification(BaseModel):
     matches_commentary: bool = Field(
         description="Whether the translation fully aligns with all key points from the commentary",

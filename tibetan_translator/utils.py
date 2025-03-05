@@ -2,6 +2,7 @@ import json
 from tibetan_translator.models import State
 from langchain_anthropic import ChatAnthropic
 import getpass
+import os
 
 # Initialize LLM instance
 os.environ["ANTHROPIC_API_KEY"] = getpass.getpass("Enter your API key")

@@ -1,4 +1,4 @@
-from tibetan_translator.models import State, Translation_extractor
+from tibetan_translator.models import State, Translation_extractor,Translation
 from tibetan_translator.prompts import (
     get_formatting_feedback_prompt,
     get_translation_prompt
@@ -19,7 +19,7 @@ def formater(state: State):
 def format_evaluator_feedback(state: State):
     """Evaluate and maintain translation formatting."""
     prompt = get_formatting_feedback_prompt(state['source'], state['translation'][-1], state['format_feedback_history'])
-    review = llm.invoke(prompt)
+    review = llm.with_structured_output(Translation).invoke(prompt)
     
     if review.format_matched:
         return {"formated": True, "translation": state['translation']}

@@ -6,4 +6,5 @@ pandas
 argparse
 ipython
 json
+langgraph
 getpass
