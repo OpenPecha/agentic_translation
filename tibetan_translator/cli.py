@@ -25,6 +25,7 @@ def run(data, batch_size=4, run_name="run1", preprocess=False):
                 "feedback_history": [],
                 "format_feedback_history": [],
                 "itteration": 0,
+                "format_iteration": 0,
                 "formated": False,
                 "glossary": [],
                 "language": "English"

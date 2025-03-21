@@ -43,6 +43,17 @@ Ensure you have Python installed (>=3.8), then install the dependencies:
 pip install -r requirements.txt
 ```
 
+## Configuration
+
+Create a `.env` file in the project root with your API keys:
+
+```
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+GOOGLE_API_KEY=your_google_api_key_here
+```
+
+These API keys are required for the LLM models used in translation.
+
 ## Usage
 
 Run the CLI tool to process a translation:

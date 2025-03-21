@@ -7,4 +7,4 @@ argparse
 ipython
 json
 langgraph
-getpass
+python-dotenv

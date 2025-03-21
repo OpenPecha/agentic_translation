@@ -6,6 +6,8 @@ import json
 from tibetan_translator.utils import llm
 
 def get_translation_prompt(source, example):
+    # This is kept for backward compatibility
+    # New code should use utils.get_translation_extraction_prompt instead
     return f"""
     Extract the translation with exact format from the response:
      Source text:
@@ -29,18 +31,19 @@ For each key point, provide:
 
 Structure the output as a list of points, each containing these four elements."""
 
-def get_verification_prompt(translation, key_points):
-    return f"""Verify this translation against the key points:
+def get_verification_prompt(translation, combined_commentary, language="English"):
+    """Get prompt to verify translation against commentary."""
+    return f"""Verify this translation against the commentary:
 
 Translation:
 {translation}
 
-Key Points:
-{json.dumps([point.dict() for point in key_points], indent=2)}
+Commentary (Including Analysis):
+{combined_commentary}
 
 Verify:
     matches_commentary: bool = Field(
-        description="Whether the translation fully aligns with all key points from the commentary",
+        description="Whether the translation fully aligns with the commentary",
     )
     missing_concepts: str = Field(
         description="List of concepts from commentary that are missing or incorrectly translated",
@@ -48,46 +51,56 @@ Verify:
     misinterpretations: str = Field(
         description="List of any concepts that were translated in ways that contradict the commentary",
     )
-    context_accuracy: Dict[str, str] = Field(
+    context_accuracy: str = Field(
         description="Verification of key contextual elements mentioned in commentary",
     )
 
+Important: Your verification MUST be in {language}. Provide all feedback, descriptions, and analyses in {language}.
+
 Provide structured verification results."""
 
-def get_commentary_translation_prompt(sanskrit, source, commentary):
-    return f"""As an expert in Tibetan Commentary translation, translate this commentary:
+def get_commentary_translation_prompt(sanskrit, source, commentary, language="English"):
+    return f"""As an expert in Tibetan Commentary translation\\\, translate this commentary into {language}:
     Sanskrit text:
 {sanskrit}
 Source Text: {source}
 Commentary to translate: {commentary}
 
 Focus on:
-- Accurate translation of technical terms
+- Accurate translation of technical terms into {language}
 - Preservation of traditional methods
 - Proper handling of citations
 - Maintaining pedagogical structure
 - Correct translation of formal language
+- Ensure all terminology is translated into {language}
 
-Provide only the translated commentary."""
+Provide only the translated commentary in {language}."""
 
-def get_combined_commentary_prompt(source, commentaries):
-    return f"""Create a Combined commentary explanation sentence by sentence using these translated commentary of the source text, if there isn't a single commentary then create your own:
+# This prompt is deprecated - use get_combined_commentary_prompt from utils.py instead
+# def get_combined_commentary_prompt(source, commentaries, language="English"):
+#     """This function is deprecated. Use utils.get_combined_commentary_prompt instead."""
+#     return f"""Create a Combined commentary explanation sentence by sentence using these translated commentary of the source text, if there isn't a single commentary then create your own.
+
+# Source Text: {source}
+
+# {commentaries}
+
+# Important: Your combined commentary MUST be in {language}. Ensure all terminology, explanations, and analyses are expressed in {language}.
+# """
+
+
+def get_translation_evaluation_prompt(source, translation, combined_commentary, verification, previous_feedback, language="English"):
+    """Generate a prompt for evaluating a translation against commentary with language-specific feedback."""
+    # Count the number of lines in the source
+    source_lines = len([line for line in source.split('\n') if line.strip()])
+    
+    return f"""Evaluate this translation comprehensively for content accuracy, structural formatting, AND linguistic fluency in {language}:
 
 Source Text: {source}
-
-{commentaries}
-"""
-
-
-def get_translation_evaluation_prompt(source, translation, combined_commentary, key_points, verification, previous_feedback):
-    """Generate a prompt for evaluating a translation against commentary and key points."""
-    return f"""Evaluate this translation comprehensively:
-
-Source Text: {source}
-Target Language: English
+Target Language: {language}
 Translation: {translation}
 
-Commentary:
+Commentary (Including Analysis):
 {combined_commentary}
 
 Previous Feedback:
@@ -96,25 +109,47 @@ Previous Feedback:
 Verification Results:
 {verification}
 
-Evaluate based on:
+CRITICAL STRUCTURAL REQUIREMENTS:
+- Source has approximately {source_lines} lines/segments - translation MUST have similar structure
+- If source is in verse form, translation MUST be in verse form
+- Paragraph breaks and line breaks MUST match the source text structure
+- Sentence boundaries should respect the source text
+
+LANGUAGE-SPECIFIC REQUIREMENTS FOR {language.upper()}:
+- Translation must sound natural and fluent to native {language} speakers
+- Use appropriate {language} grammar, syntax, and idiomatic expressions
+- Maintain proper {language} sentence structure and flow
+- Use culturally-appropriate and accurate terminology in {language}
+- Avoid awkward phrasing, word-for-word translations, or unnatural constructions
+- Technical Buddhist terms should be translated using established {language} conventions when available
+
+CONTENT EVALUATION CRITERIA:
 1. Commentary alignment
-2. Key point representation
-3. Technical terminology
-4. Philosophical accuracy
-5. Whether the sentences match the format of the source text
-6. Contextual preservation
-7. If the source is in verse, then the translation should be in verse
+2. Technical terminology accuracy
+3. Philosophical precision
+4. Contextual preservation
+5. Use of insights from analysis section in the commentary
+6. Linguistic coherence and natural flow in {language}
 
 Grade criteria:
-- "great": Perfect alignment with commentary and source text
-- "good": Minor deviations
-- "okay": Several misalignments
-- "bad": Major divergence
+- "great": Perfect alignment with commentary, correct formatting, AND natural, fluent {language}
+- "good": Minor deviations in content OR minor formatting/linguistic issues
+- "okay": Several misalignments, structural issues, or awkward language
+- "bad": Major divergence in content, structure, or poor {language} fluency
 
-Provide specific feedback for improvements."""
-def get_translation_improvement_prompt(sanskrit, source, combined_commentary, key_points, latest_feedback, current_translation):
+For your response, provide:
+1. A grade (great/good/okay/bad)
+2. Whether the format matches the source structure (true/false)
+3. Specific formatting issues (if any)
+4. {language}-specific linguistic feedback (focus on naturalness, fluency, and accuracy)
+5. Detailed content feedback for improvements
+
+IMPORTANT: Your evaluation MUST be in {language}. Provide all feedback in {language} with specific suggestions for how to improve the translation's fluency and naturalness in {language}.
+
+Formatting issues, incorrect structure, and unnatural language are ALL CRITICAL problems that must be fixed for a translation to be acceptable."""
+def get_translation_improvement_prompt(sanskrit, source, combined_commentary, latest_feedback, current_translation, language="English"):
     """Generate a prompt for improving a translation based on feedback."""
-    return f"""Create an improved English translation that addresses the previous feedback:
+    return f"""Create an improved {language} translation that addresses the previous feedback:
 
 Sanskrit text:
 {sanskrit}
@@ -125,27 +160,36 @@ Source Text:
 Commentary Analysis:
 {combined_commentary}
 
-Key Points:
-{key_points}
-
 Latest Feedback to Address:
 {latest_feedback}
 
 Current Translation:
 {current_translation}
 
-Requirements:
-1. Make specific improvements based on the latest feedback while keeping the translation close to the source text.
-2. Ensure alignment with the commentary and key points.
-3. Focus on addressing each point of criticism.
-4. Maintain accuracy while implementing the suggested changes.
-5. Refer to the Sanskrit text as well as the Tibetan text, as the Tibetan text itself is translated from the Sanskrit text.
+LINGUISTIC REQUIREMENTS FOR {language.upper()}:
+- Your translation MUST be in fluent, natural {language}
+- Use appropriate {language} grammar, syntax, and idiomatic expressions
+- Maintain proper {language} sentence structure and flow
+- Use culturally-appropriate and accurate terminology in {language}
+- Avoid awkward phrasing, word-for-word translations, or unnatural constructions
+- Technical Buddhist terms should be translated using established {language} conventions when available
 
-Generate only the improved translation."""
-def get_initial_translation_prompt(sanskrit, source, combined_commentary, key_points):
+IMPROVEMENT REQUIREMENTS:
+1. Make specific improvements based on the latest feedback while keeping the translation close to the source text
+2. Ensure alignment with the commentary analysis
+3. Focus on addressing each point of criticism, especially regarding linguistic fluency
+4. Maintain accuracy while implementing the suggested changes
+5. Refer to the Sanskrit text as well as the Tibetan text, as the Tibetan text itself is translated from the Sanskrit text
+6. Use the analysis section in the commentary for deeper understanding of Buddhist concepts
+7. Pay special attention to making the translation sound natural in {language} for native speakers
+
+IMPORTANT: Generate ONLY the improved translation in fluent, natural {language}. Do not include explanations or notes.
+
+Your translation should preserve the original meaning but express it in a way that sounds completely natural to native {language} speakers."""
+def get_initial_translation_prompt(sanskrit, source, combined_commentary, language="English"):
     """Generate a prompt for the initial translation of a Tibetan Buddhist text."""
     return f"""
-Translate this Tibetan Buddhist text into English:
+Translate this Tibetan Buddhist text into natural, fluent {language}:
 
 Sanskrit text:
 {sanskrit}
@@ -153,23 +197,31 @@ Sanskrit text:
 Source Text:
 {source}
 
-Context:
+Context (Including Analysis):
 {combined_commentary}
 
-Key Points:
-{key_points}
+LANGUAGE-SPECIFIC REQUIREMENTS FOR {language.upper()}:
+- Your translation MUST be in fluent, natural {language} as spoken by native speakers
+- Use appropriate {language} grammar, syntax, and idiomatic expressions
+- Maintain proper {language} sentence structure and flow
+- Use culturally-appropriate and accurate terminology in {language}
+- Avoid awkward phrasing, word-for-word translations, or unnatural constructions
+- Technical Buddhist terms should be translated using established {language} conventions when available
 
 Translation guidance:
-- Freely restructure sentences to achieve natural English expression
+- Freely restructure sentences to achieve natural {language} expression
 - Prioritize accuracy of Buddhist concepts and doctrinal meaning
 - Preserve all content and implied meanings from the original
-- Choose the best way to convey the intended meaning
+- Choose the best way to convey the intended meaning in natural {language}
 - Refer to the Sanskrit text as well as the Tibetan text, as the Tibetan text is translated from the Sanskrit text
-- The translation should be detailed and should not be in verse format while avoiding adding any extra information
-- The translation is not an explanation of the text but a direct translation of the text
+- The translation should be detailed and should preserve verse format if the original is in verse
+- The translation is not an explanation of the text but a direct translation expressed naturally in {language}
+- Use the analysis section in the context for deeper understanding of Buddhist concepts
 
-Generate the translation in a clear and structured format."""
-def get_formatting_feedback_prompt(source, translation, previous_feedback):
+YOUR GOAL: Create a translation that sounds as if it were originally written in {language} by a native speaker with expertise in Buddhism.
+
+Generate the translation in a clear and structured format matching the source text structure."""
+def get_formatting_feedback_prompt(source, translation, previous_feedback, language="English"):
     """Generate a prompt to evaluate and improve translation formatting."""
     return f"""Analyze the formatting of this translation:
 
@@ -184,15 +236,15 @@ Previous Feedback:
 
 Notes for evaluation:
 1. Your task is to evaluate the format, not the translation quality.
-2. Do not add "།" in the English translation.
+2. Do not add "།" in the {language} translation.
 3. Provide specific formatting guidance based on previous feedback.
 4. Ensure the format matches the source text.
 
 Provide specific formatting feedback."""
-def get_glossary_extraction_prompt(source, combined_commentary, final_translation):
+def get_glossary_extraction_prompt(source, combined_commentary, final_translation, language="English"):
     """Generate a prompt for extracting glossary terms from a translation."""
     return f"""
-Extract a comprehensive glossary from the final translation only:
+Extract a comprehensive glossary from the final {language} translation only:
 
 Source Text:
 {source}
@@ -205,10 +257,10 @@ Final Translation:
 
 For each technical term, provide:
 1. Original Tibetan term in the Source Text
-2. Exact Translation term used
-3. Usage context
-4. Commentary reference
-5. Term category (e.g., philosophical, technical, ritual, doctrinal)
+2. Exact {language} translation term used
+3. Usage context (IMPORTANT: This MUST be written in {language})
+4. Commentary reference (IMPORTANT: This MUST be written in {language})
+5. Term category (e.g., philosophical, technical, ritual, doctrinal) (In {language})
 6. Entity category (e.g., person, place, etc.), if not entity then leave it blank
 
 Focus on:
@@ -218,4 +270,43 @@ Focus on:
 - Do not use any terms that are not in the Source text
 - Do not use any terms from the Commentary unless it overlaps with the Source text
 
-Format the extracted glossary in a structured data format."""
+CRITICAL INSTRUCTIONS:
+- ALL descriptions, context, explanations, and categorical information MUST be in {language}
+- DO NOT provide any content in English unless the target language is English
+- The only field that should not be in {language} is the original Tibetan term
+
+OUTPUT FORMAT REQUIREMENTS:
+- You MUST structure your output as valid, properly formatted JSON
+- The output MUST be a JSON array (list) of objects
+- Each object MUST have exactly these fields: tibetan_term, translation, context, commentary_reference, category, entity_category
+- No extra fields or comments outside the JSON structure are allowed
+- For ALL languages including Chinese, Japanese, Korean, etc., ensure the JSON is properly formatted with correct delimiters
+
+Example of the required JSON structure:
+```json
+[
+  {{
+    "tibetan_term": "བྱང་ཆུབ་སེམས",
+    "translation": "bodhicitta",
+    "context": "The mind of enlightenment",
+    "commentary_reference": "From Śāntideva's explanation",
+    "category": "philosophical",
+    "entity_category": ""
+  }},
+  {{
+    "tibetan_term": "ཤེས་རབ",
+    "translation": "wisdom",
+    "context": "Transcendent understanding",
+    "commentary_reference": "In context of perfections",
+    "category": "philosophical",
+    "entity_category": ""
+  }}
+]
+```
+
+IMPORTANT: 
+1. The output MUST ONLY contain the JSON array - no other text
+2. The JSON must be valid and properly formatted
+3. All field contents in {language} (except the tibetan_term)
+4. Even for Chinese, Japanese, Korean and other non-Latin languages, preserve the JSON structure exactly as shown
+5. Do not add any text before or after the JSON array"""

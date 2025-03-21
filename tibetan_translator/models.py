@@ -1,5 +1,10 @@
-from typing import List, Literal, TypedDict
-from pydantic import BaseModel, Field
+import json
+import logging
+from typing import List, Literal, TypedDict, Any, Union
+from pydantic import BaseModel, Field, field_validator
+
+# Setup model-specific logger
+logger = logging.getLogger("tibetan_translator.models")
 
 class CommentaryVerification(BaseModel):
     matches_commentary: bool = Field(
@@ -17,14 +22,51 @@ class CommentaryVerification(BaseModel):
 # Add new model for glossary entries
 class GlossaryEntry(BaseModel):
     tibetan_term: str = Field(description="Original Tibetan term")
-    translation: str = Field(description="Exact English translation used in the translation")
-    context: str = Field(description="Context or usage notes")
-    entity_category: str = Field(description="entity category (e.g., person, place, etc.), if not entity then leave it blank")
-    commentary_reference: str = Field(description="Reference to commentary explanation")
-    category: str = Field(description="Term category (philosophical, technical, etc.)")
+    translation: str = Field(description="Exact translation used in the target language")
+    context: str = Field(description="Context or usage notes in the target language")
+    entity_category: str = Field(description="Entity category (e.g., person, place, etc.) in the target language, if not entity then leave it blank")
+    commentary_reference: str = Field(description="Reference to commentary explanation in the target language")
+    category: str = Field(description="Term category (philosophical, technical, etc.) in the target language")
 
 class GlossaryExtraction(BaseModel):
     entries: List[GlossaryEntry] = Field(description="List of extracted glossary entries")
+    
+    @field_validator('entries', mode='before')
+    @classmethod
+    def validate_entries(cls, v: Any) -> List[GlossaryEntry]:
+        """Validator to handle string inputs for entries field.
+        
+        This is especially important for Chinese and other non-Latin languages where
+        JSON parsing might return a string instead of properly parsing to a list.
+        """
+        logger.debug(f"GlossaryExtraction validator received entries of type: {type(v)}")
+        
+        # If it's already a list, return it
+        if isinstance(v, list):
+            logger.debug(f"Entries is already a list with {len(v)} items")
+            return v
+            
+        # If it's a string, try to parse it as JSON
+        if isinstance(v, str):
+            logger.debug(f"Entries is a string, attempting to parse as JSON. Content sample: {v[:200]}...")
+            try:
+                parsed = json.loads(v)
+                logger.debug(f"Successfully parsed string to {type(parsed)}")
+                
+                # If parsing gave us a list, return it
+                if isinstance(parsed, list):
+                    logger.debug(f"Parsed to a list with {len(parsed)} items")
+                    return parsed
+                else:
+                    logger.error(f"Parsed JSON is not a list but {type(parsed)}")
+                    raise ValueError(f"Expected a list after parsing string, got {type(parsed)}")
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse entries string as JSON: {str(e)}")
+                raise ValueError(f"Invalid JSON string for entries: {str(e)}")
+        
+        # If we got here, it's neither a list nor a string that parses to a list
+        logger.error(f"Invalid type for entries: {type(v)}")
+        raise ValueError(f"entries must be a list or a string containing a JSON list, got {type(v)}")
 
 class Feedback(BaseModel):
     grade: Literal["bad", "okay", "good", "great"] = Field(
@@ -32,6 +74,14 @@ class Feedback(BaseModel):
     )
     feedback: str = Field(
         description="Detailed feedback on improving translation based on commentary interpretation",
+    )
+    format_matched: bool = Field(
+        description="Whether the translation structure matches the source structure (line count, verse form, paragraph breaks)",
+        default=False,
+    )
+    format_issues: str = Field(
+        description="Specific formatting issues to address (if any)",
+        default="",
     )
 
 class Translation_extractor(BaseModel):
@@ -73,7 +123,9 @@ class State(TypedDict):
     commentary3: str
     combined_commentary: str
     key_points: List[KeyPoint]
-    itteration: int
+    plaintext_translation: str  
+    itteration: int  # For translation quality improvement iterations
+    format_iteration: int  # For formatting correction iterations
     formated: bool
     glossary: List[GlossaryEntry]
     plaintext_translation: str
