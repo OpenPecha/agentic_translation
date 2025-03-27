@@ -21,12 +21,13 @@ if not glossary_logger.handlers:
 def extract_glossary(state: State) -> List[GlossaryEntry]:
     """Extract technical terms and their translations into a glossary."""
     language = state.get('language', 'English')
-    glossary_logger.info(f"Extracting glossary for language: {language}")
+    commentary_source = state.get('commentary_source', 'traditional')
+    glossary_logger.info(f"Extracting glossary for language: {language}, commentary source: {commentary_source}")
     
     try:
         glossary_prompt = get_glossary_extraction_prompt(
             state['source'], state['combined_commentary'], state['translation'][-1],
-            language=language
+            language=language, commentary_source=commentary_source
         )
         
         # Log the language and target language-specific instructions

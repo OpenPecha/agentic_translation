@@ -169,6 +169,103 @@ Please analyze this text line by line, explaining its meaning, philosophical con
     
     return messages
 
+def create_source_analysis(source_text, sanskrit_text="", language="English"):
+    """Create a focused analysis of the source text without speculative commentary."""
+    
+    # Create prompt for source-focused analysis
+    system_message = SystemMessage(content=f"""Analyze this Tibetan Buddhist text directly from the source without speculative commentary. Your task is to:
+
+1. Identify grammatical structures and linguistic patterns in the Tibetan text
+2. Note any technical Buddhist terminology and its precise meaning
+3. Document structural elements (verse format, paragraph breaks, etc.)
+4. Highlight key concepts but avoid interpretive speculation
+5. Provide literal meanings while noting potential ambiguities
+
+Focus ONLY on what can be directly determined from the text itself.
+IMPORTANT: Your analysis MUST be written in {language}.""")
+    
+    # Create content with conditional Sanskrit part
+    content = f"""Analyze this Tibetan Buddhist text:
+
+SOURCE TEXT:
+{source_text}
+
+"""
+    # Add Sanskrit text if available
+    if sanskrit_text:
+        content += f"SANSKRIT TEXT (if available):\n{sanskrit_text}\n\n"
+    
+    content += f"Please provide a detailed linguistic and structural analysis in {language}, focusing exclusively on the text itself without speculative interpretation."
+    
+    messages = [system_message, HumanMessage(content=content)]
+    
+    # Use thinking LLM for careful analysis
+    response = llm_thinking.invoke(messages)
+    
+    # Extract content from thinking response
+    analysis_content = ""
+    
+    if isinstance(response, list):
+        # Handle thinking output format, extracting only the text part
+        for chunk in response:
+            if isinstance(chunk, dict) and chunk.get('type') == 'text':
+                analysis_content = chunk.get('text', '')
+    elif hasattr(response, 'content'):
+        if isinstance(response.content, list) and len(response.content) > 1:
+            # Extract text from the second element (typical thinking response structure)
+            analysis_content = response.content[1].get('text', '')
+        else:
+            analysis_content = response.content
+    else:
+        analysis_content = str(response)
+    
+    return analysis_content
+
+def get_enhanced_translation_prompt(sanskrit, source, source_analysis, language="English"):
+    """Generate an enhanced prompt for fluent yet accurate translation."""
+    return f"""
+    Translate this Tibetan Buddhist text into natural, eloquent {language}:
+
+    Sanskrit text:
+    {sanskrit}
+
+    Source Text:
+    {source}
+
+    Source Analysis:
+    {source_analysis}
+
+    TRANSLATION PRIORITIES:
+    1. FLUENCY: Create text that flows naturally in {language} as if originally composed in it
+    2. ACCURACY: Preserve the precise meaning of every term and concept
+    3. STRUCTURE: Maintain the original's structural elements while adapting to {language} literary norms
+    4. TERMINOLOGY: Use established Buddhist terminology in {language} where it exists
+
+    LANGUAGE-SPECIFIC GUIDANCE FOR {language.upper()}:
+    - Restructure sentences to match natural {language} rhythm and flow
+    - Use idiomatic expressions native to {language} literary tradition
+    - Adapt sentence length and complexity to {language} conventions
+    - Choose terminology that resonates with {language}-speaking Buddhist practitioners
+    - Balance technical precision with literary elegance
+
+    HANDLING CHALLENGING ELEMENTS:
+    - For ambiguous passages: provide the most natural reading but stay close to literal meaning
+    - For technical terms: use established translations if they exist, otherwise translate conceptually
+    - For cultural references: preserve the original concept while making it accessible to {language} readers
+    - For poetic elements: capture the aesthetic quality in {language} poetic conventions
+    
+    AVOID:
+    - Word-for-word translation that creates awkward {language} phrasing
+    - Overly simplifying complex concepts
+    - Adding interpretive content not present in the source
+    - Losing structural elements (verse format, sections, etc.)
+    - Using inconsistent terminology for repeated concepts
+
+    YOUR GOAL: A translation that a native {language} speaker with Buddhist knowledge would recognize as both authentic to the tradition and natural in their language.
+
+    Generate only the translation with no explanatory notes.
+    """
+
 def get_combined_commentary_prompt(source_text, commentaries, has_commentaries=True, language="English"):
     """Generate a prompt for creating combined commentary, with fallback for cases with no commentaries."""
     # If there are no commentaries, use zero-shot mode instead

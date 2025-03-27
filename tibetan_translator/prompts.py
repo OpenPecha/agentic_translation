@@ -241,15 +241,22 @@ Notes for evaluation:
 4. Ensure the format matches the source text.
 
 Provide specific formatting feedback."""
-def get_glossary_extraction_prompt(source, combined_commentary, final_translation, language="English"):
+def get_glossary_extraction_prompt(source, combined_commentary, final_translation, language="English", commentary_source="traditional"):
     """Generate a prompt for extracting glossary terms from a translation."""
+    
+    # Customize commentary reference instructions based on source
+    if commentary_source == "source_analysis":
+        commentary_reference_instr = f"Commentary reference (IMPORTANT: Since this translation was based on direct source analysis rather than traditional commentaries, indicate this by starting with 'From source analysis:' followed by relevant linguistic or structural insights in {language})"
+    else:
+        commentary_reference_instr = f"Commentary reference (IMPORTANT: This MUST be written in {language}, referencing traditional commentary explanations)"
+    
     return f"""
 Extract a comprehensive glossary from the final {language} translation only:
 
 Source Text:
 {source}
 
-Combined Commentary:
+{"Source Analysis:" if commentary_source == "source_analysis" else "Combined Commentary:"}
 {combined_commentary}
 
 Final Translation:
@@ -259,7 +266,7 @@ For each technical term, provide:
 1. Original Tibetan term in the Source Text
 2. Exact {language} translation term used
 3. Usage context (IMPORTANT: This MUST be written in {language})
-4. Commentary reference (IMPORTANT: This MUST be written in {language})
+4. {commentary_reference_instr}
 5. Term category (e.g., philosophical, technical, ritual, doctrinal) (In {language})
 6. Entity category (e.g., person, place, etc.), if not entity then leave it blank
 
@@ -268,12 +275,13 @@ Focus on:
 - Important Entities (names of people, places, etc.)
 - Specialized vocabulary in Buddhist Texts
 - Do not use any terms that are not in the Source text
-- Do not use any terms from the Commentary unless it overlaps with the Source text
+- {"Only refer to the source analysis for linguistic insights" if commentary_source == "source_analysis" else "Do not use any terms from the Commentary unless it overlaps with the Source text"}
 
 CRITICAL INSTRUCTIONS:
 - ALL descriptions, context, explanations, and categorical information MUST be in {language}
 - DO NOT provide any content in English unless the target language is English
 - The only field that should not be in {language} is the original Tibetan term
+- {"For commentary_reference fields, always start with 'From source analysis:' to indicate this was not from traditional commentaries" if commentary_source == "source_analysis" else ""}
 
 OUTPUT FORMAT REQUIREMENTS:
 - You MUST structure your output as valid, properly formatted JSON
@@ -289,7 +297,7 @@ Example of the required JSON structure:
     "tibetan_term": "བྱང་ཆུབ་སེམས",
     "translation": "bodhicitta",
     "context": "The mind of enlightenment",
-    "commentary_reference": "From Śāntideva's explanation",
+    "commentary_reference": "{f"From source analysis: Term identified as key philosophical concept in Buddhist soteriology" if commentary_source == "source_analysis" else "From Śāntideva's explanation"}",
     "category": "philosophical",
     "entity_category": ""
   }},
@@ -297,7 +305,7 @@ Example of the required JSON structure:
     "tibetan_term": "ཤེས་རབ",
     "translation": "wisdom",
     "context": "Transcendent understanding",
-    "commentary_reference": "In context of perfections",
+    "commentary_reference": "{f"From source analysis: Linguistic analysis shows connection to Sanskrit prajñā" if commentary_source == "source_analysis" else "In context of perfections"}",
     "category": "philosophical",
     "entity_category": ""
   }}

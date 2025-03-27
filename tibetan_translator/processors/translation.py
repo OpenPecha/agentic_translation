@@ -6,7 +6,13 @@ from tibetan_translator.prompts import (
     get_initial_translation_prompt,
     get_translation_prompt
 )
-from tibetan_translator.utils import llm, llm_thinking, get_translation_extraction_prompt, get_plain_translation_prompt
+from tibetan_translator.utils import (
+    llm, 
+    llm_thinking, 
+    get_translation_extraction_prompt, 
+    get_plain_translation_prompt, 
+    get_enhanced_translation_prompt
+)
 from tibetan_translator.config import MAX_TRANSLATION_ITERATIONS
 
 
@@ -32,11 +38,26 @@ def translation_generator(state: State):
             "itteration": current_iteration + 1
         }
     else:
-        # Create primary translation prompt using target language
-        prompt = get_initial_translation_prompt(
-            state['sanskrit'], state['source'], state['combined_commentary'], 
-            language=state.get('language', 'English')
-        )
+        # Check if we're using source analysis mode (no commentaries)
+        is_source_focused = not state.get('commentary1') and not state.get('commentary2') and not state.get('commentary3')
+        
+        # Select the appropriate translation prompt based on mode
+        if is_source_focused:
+            # Use enhanced translation prompt for source-focused translation
+            prompt = get_enhanced_translation_prompt(
+                state['sanskrit'], 
+                state['source'], 
+                state['combined_commentary'],  # This now contains source analysis
+                language=state.get('language', 'English')
+            )
+        else:
+            # Use standard commentary-based translation prompt
+            prompt = get_initial_translation_prompt(
+                state['sanskrit'], 
+                state['source'], 
+                state['combined_commentary'], 
+                language=state.get('language', 'English')
+            )
         
         # Use thinking LLM for primary translation
         thinking_response = llm_thinking.invoke(prompt)

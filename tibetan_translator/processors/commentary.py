@@ -6,7 +6,7 @@ from tibetan_translator.prompts import (
     get_translation_prompt,
     
 )
-from tibetan_translator.utils import llm, llm_thinking,get_combined_commentary_prompt
+from tibetan_translator.utils import llm, llm_thinking, get_combined_commentary_prompt, create_source_analysis
 
 
 
@@ -71,7 +71,7 @@ def commentary_translator_3(state: State):
 def aggregator(state: State):
     """
     Combine commentaries based on the following logic:
-    - If no commentaries exist, return None
+    - If no commentaries exist, create source analysis
     - If only one commentary exists, use that as the combined commentary
     - If multiple commentaries exist, use LLM to create a combined commentary
     """
@@ -83,18 +83,26 @@ def aggregator(state: State):
     # Count how many commentaries we have
     commentary_count = sum([has_commentary1, has_commentary2, has_commentary3])
     
-    # If no commentaries, return None
+    # If no commentaries, create source analysis instead
     if commentary_count == 0:
-        return {"combined_commentary": None}
+        source_analysis = create_source_analysis(
+            state['source'], 
+            state.get('sanskrit', ''), 
+            language=state.get('language', 'English')
+        )
+        return {
+            "combined_commentary": source_analysis,
+            "commentary_source": "source_analysis"
+        }
     
     # If only one commentary, use that as the combined
     if commentary_count == 1:
         if has_commentary1:
-            return {"combined_commentary": state['commentary1_translation']}
+            return {"combined_commentary": state['commentary1_translation'], "commentary_source": "traditional"}
         elif has_commentary2:
-            return {"combined_commentary": state['commentary2_translation']}
+            return {"combined_commentary": state['commentary2_translation'], "commentary_source": "traditional"}
         else:  # has_commentary3 must be True
-            return {"combined_commentary": state['commentary3_translation']}
+            return {"combined_commentary": state['commentary3_translation'], "commentary_source": "traditional"}
     
     # If we have multiple commentaries, combine them using LLM
     combined = ""
@@ -136,4 +144,4 @@ def aggregator(state: State):
     else:
         commentary_content = str(response)
     
-    return {"combined_commentary": commentary_content}
+    return {"combined_commentary": commentary_content, "commentary_source": "traditional"}

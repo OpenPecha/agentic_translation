@@ -122,6 +122,7 @@ class State(TypedDict):
     commentary2: str
     commentary3: str
     combined_commentary: str
+    commentary_source: str  # Tracks origin of commentary: "traditional" or "source_analysis"
     key_points: List[KeyPoint]
     plaintext_translation: str  
     itteration: int  # For translation quality improvement iterations
