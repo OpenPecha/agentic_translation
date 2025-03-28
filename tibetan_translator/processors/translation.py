@@ -23,15 +23,17 @@ def translation_generator(state: State):
 
     if state.get("feedback_history"):
         latest_feedback = state["feedback_history"][-1] if state["feedback_history"] else "No feedback yet."
+        target_language = state.get('language', 'English')
+        
         prompt = get_translation_improvement_prompt(
             state['sanskrit'], state['source'], state['combined_commentary'], 
             latest_feedback, state['translation'][-1],
-            language=state.get('language', 'English')
+            language=target_language
         )
         # Use standard llm for subsequent iterations
         msg = llm.invoke(prompt)
         translation = llm.with_structured_output(Translation_extractor).invoke(
-            get_translation_extraction_prompt(state['source'], msg.content)
+            get_translation_extraction_prompt(state['source'], msg.content, language=target_language)
         )
         return {
             "translation": state["translation"] + [translation.extracted_translation],
@@ -91,14 +93,17 @@ def translation_generator(state: State):
         # Extract plain translation content
         plain_translation_content = plain_translation_response.content if hasattr(plain_translation_response, 'content') else str(plain_translation_response)
             
+        # Get target language from state
+        target_language = state.get('language', 'English')
+        
         # Use few-shot prompting with regular LLM for structured output extraction
         translation = llm.with_structured_output(Translation_extractor).invoke(
-            get_translation_extraction_prompt(state['source'], translation_content)
+            get_translation_extraction_prompt(state['source'], translation_content, language=target_language)
         )
         
         # Also extract plain translation using few-shot prompting
         plain_translation = llm.with_structured_output(Translation_extractor).invoke(
-            get_translation_extraction_prompt(state['source'], plain_translation_content)
+            get_translation_extraction_prompt(state['source'], plain_translation_content, language=target_language)
         )
         
         # Create feedback entry with both translation and thinking parts

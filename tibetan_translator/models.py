@@ -68,7 +68,24 @@ class GlossaryExtraction(BaseModel):
         logger.error(f"Invalid type for entries: {type(v)}")
         raise ValueError(f"entries must be a list or a string containing a JSON list, got {type(v)}")
 
+class LanguageCheck(BaseModel):
+    is_target_language: bool = Field(
+        description="Whether the translation is actually in the specified target language",
+    )
+    language_issues: str = Field(
+        description="Description of any issues with the target language if not in target language",
+        default="",
+    )
+
 class Feedback(BaseModel):
+    is_target_language: bool = Field(
+        description="Whether the translation is actually in the specified target language",
+        default=True,
+    )
+    language_issues: str = Field(
+        description="Description of any issues with the target language if not in target language",
+        default="",
+    )
     grade: Literal["bad", "okay", "good", "great"] = Field(
         description="Evaluate translation quality based on accuracy and commentary alignment",
     )

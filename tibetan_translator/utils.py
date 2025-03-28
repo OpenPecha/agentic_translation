@@ -19,17 +19,33 @@ logging.basicConfig(
 )
 logger = logging.getLogger("tibetan_translator")
 
-# Define few-shot examples for translation extraction
+# Define few-shot examples for translation extraction in different languages
 translation_extraction_examples = [
+    # English example
     {"source": "བཅོམ་ལྡན་འདས་རྒྱལ་པོའི་ཁབ་བྱ་རྒོད་ཕུང་པོའི་རི་ལ་དགེ་སློང་གི་དགེ་འདུན་ཆེན་པོ་དང་།",
-     "translation": "The Blessed One was residing on Vulture Peak Mountain in Rajagriha with a great assembly of monks."},
+     "translation": "The Blessed One was residing on Vulture Peak Mountain in Rajagriha with a great assembly of monks.",
+     "language": "English",
+     "llm_response": "I've analyzed the Tibetan text and here's my translation:\n\nThe Blessed One was residing on Vulture Peak Mountain in Rajagriha with a great assembly of monks.\n\nThis is a common opening formula in many Buddhist sutras, indicating where the Buddha was teaching."},
     
+    # Chinese example
     {"source": "འདི་སྐད་བདག་གིས་ཐོས་པ་དུས་གཅིག་ན།",
-     "translation": "Thus have I heard at one time."},
+     "translation": "如是我聞，一時，",
+     "language": "Chinese", 
+     "llm_response": "翻译：\n如是我聞，一時，\n\n解释：这是佛经的标准开头，表示'这是我听到的'，由阿难在佛陀涅槃后结集经典时所加。"},
      
+    # Italian example
     {"source": "བཅོམ་ལྡན་འདས་མཉན་ཡོད་ན་རྒྱལ་བུ་རྒྱལ་བྱེད་ཀྱི་ཚལ་མགོན་མེད་ཟས་སྦྱིན་གྱི་ཀུན་དགའ་ར་བ་ན།",
-     "translation": "The Blessed One was staying in Śrāvastī, in the Jetavana Grove, in the garden of Anāthapiṇḍika."}
+     "translation": "Il Beato soggiornava a Śrāvastī, nel boschetto di Jeta, nel giardino di Anāthapiṇḍika.",
+     "language": "Italian",
+     "llm_response": "Ecco la traduzione del testo tibetano:\n\nIl Beato soggiornava a Śrāvastī, nel boschetto di Jeta, nel giardino di Anāthapiṇḍika.\n\nNote: Questo è un tipico inizio di un sutra buddhista che indica dove il Buddha stava insegnando. Śrāvastī era una città importante nell'India antica."},
+     
+    # Russian example
+    {"source": "དགེ་སློང་དག་ངས་མྱ་ངན་ལས་འདས་པའི་བར་དུ་སྡུག་བསྔལ་རྒྱུ་མཚན་འགོག་པའི་ལམ་བསྟན་ཏོ།",
+     "translation": "Монахи, вплоть до моей нирваны я учил о страдании, его причине, прекращении и пути.",
+     "language": "Russian",
+     "llm_response": "Я перевел текст на русский язык:\n\nМонахи, вплоть до моей нирваны я учил о страдании, его причине, прекращении и пути.\n\nЭто относится к Четырем Благородным Истинам, которые являются фундаментальным учением Будды."}
 ]
+
 
 # Define few-shot examples for plain translation
 plain_translation_examples = [
@@ -55,41 +71,75 @@ combined_commentary_examples = [
     }
 ]
 
-def get_translation_extraction_prompt(source_text, llm_response):
-    """Generate a few-shot prompt for translation extraction."""
-    system_message = SystemMessage(content="""You are an expert assistant specializing in extracting translations from text. Your task is to:
+def get_translation_extraction_prompt(source_text, llm_response, language="English"):
+    """Generate a few-shot prompt for translation extraction with language-specific examples."""
+    system_message = SystemMessage(content=f"""You are an expert assistant specializing in extracting translations in {language} from text. Your task is to:
 
-1. Identify the actual translation portion of the text
-2. Extract ONLY the translation, not any translator's notes, explanations, or formatting instructions
+1. Identify the actual translation portion of the text that is in {language}
+2. Extract ONLY the {language} translation, not any translator's notes, explanations, or formatting instructions
 3. Preserve the exact formatting of the translation including line breaks
 4. Remove any metadata, headers, or annotations that are not part of the translation itself
+5. VERIFY that the extracted text is actually in {language}
 
-DO NOT include any explanatory text or commentary in your extraction. Return ONLY the translation text.""")
+CRITICAL: If the text contains translation in a language other than {language}, do NOT extract it. Your extracted text MUST be entirely in {language}.
+
+DO NOT include any explanatory text or commentary in your extraction. Return ONLY the translation text in {language}.""")
     
     # Create few-shot examples as a conversation
     messages = [system_message]
     
-    # Add few-shot examples
+    # Filter examples to include one in the target language, and at least one in another language
+    target_lang_examples = []
+    other_lang_examples = []
+    
     for example in translation_extraction_examples:
-        # Add user message with request
-        messages.append(HumanMessage(content=f"""Extract the translation from the following text:
+        if example['language'].lower() == language.lower():
+            target_lang_examples.append(example)
+        else:
+            other_lang_examples.append(example)
+    
+    # Ensure we have at least one example in the target language
+    examples_to_use = target_lang_examples[:1]  # Take one target language example
+    
+    # Add one non-target language example to show what NOT to extract
+    if other_lang_examples:
+        examples_to_use.append(other_lang_examples[0])
+    
+    # Add more target language examples if available
+    if len(target_lang_examples) > 1:
+        examples_to_use.extend(target_lang_examples[1:2])  # Add one more target language example if available
+    
+    # Add few-shot examples
+    for example in examples_to_use:
+        # Add user message with request - include actual LLM response patterns if available
+        llm_resp = example.get('llm_response', f"Here's my translation of the Tibetan text:\n\n{example['translation']}\n\nNote: This is a translation of the original text.")
+        
+        # For non-target language examples, modify the instruction to show what NOT to extract
+        if example['language'].lower() != language.lower():
+            messages.append(HumanMessage(content=f"""Extract the {language} translation from the following text (if present):
 
 SOURCE TEXT:
 {example['source']}
 
 LLM RESPONSE:
-This is a translation of the Tibetan text above. The Tibetan says: {example['source']}
-
-Translation:
-{example['translation']}
-Note: This translation preserves the meaning while making it accessible in natural English. The term "Bhagavan" refers to the Buddha...
+{llm_resp}
 """))
-        
-        # Add assistant's correct response as an AI message
-        messages.append({"type": "ai", "content": example['translation']})
+            # Empty response for non-target language (nothing to extract)
+            messages.append({"type": "ai", "content": "The provided text does not contain a translation in " + language + "."})
+        else:
+            messages.append(HumanMessage(content=f"""Extract the {language} translation from the following text:
+
+SOURCE TEXT:
+{example['source']}
+
+LLM RESPONSE:
+{llm_resp}
+"""))
+            # Correct response for target language
+            messages.append({"type": "ai", "content": example['translation']})
     
     # Add the actual request
-    messages.append(HumanMessage(content=f"""Extract the translation from the following text:
+    messages.append(HumanMessage(content=f"""Extract the {language} translation from the following text:
 
 SOURCE TEXT:
 {source_text}
@@ -97,7 +147,7 @@ SOURCE TEXT:
 LLM RESPONSE:
 {llm_response}
 
-Return ONLY the translation portion, no explanatory text or metadata."""))
+Remember: Extract ONLY the {language} translation portion, no explanatory text or metadata. If the text does not contain a translation in {language}, state that no {language} translation is present."""))
     
     return messages
 
@@ -279,7 +329,7 @@ def get_combined_commentary_prompt(source_text, commentaries, has_commentaries=T
 3. Explain each line of the source text in detail, including its doctrinal significance
 4. Connect the commentaries in a way that builds a clearer understanding of the text
 5. Ensure all technical Buddhist terminology is properly explained
-6. Combined Commentary shouldnt have the tittle # Combined Commentary in {language}.
+6. Combined Commentary shouldn't have the title # Combined Commentary in {language}
 
 Your combined commentary should be thorough, scholarly, and provide a complete analysis of the text.
 IMPORTANT: Your commentary MUST be written in {language}.""")

@@ -25,7 +25,7 @@ GLOSSARY_CSV_PATH = "translation_glossary.csv"
 STATE_JSONL_PATH = "translation_states.jsonl"
 
 # Translation Settings
-MAX_TRANSLATION_ITERATIONS = 2 # Maximum iterations for translation quality improvements
+MAX_TRANSLATION_ITERATIONS = 3 # Maximum iterations for translation quality improvements
 
 # Formatting Settings
 PRESERVE_SOURCE_FORMATTING = True  # Ensure translation matches source text formatting

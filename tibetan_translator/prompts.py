@@ -89,6 +89,25 @@ Provide only the translated commentary in {language}."""
 # """
 
 
+def get_language_check_prompt(translation, language="English"):
+    """Generate a prompt to verify if a translation is in the target language."""
+    return f"""Verify if this text is actually written in {language}:
+
+Translation to check:
+{translation}
+
+CRITICAL TASK:
+1. First, determine if this text is primarily written in {language}
+2. Check for any sections that might be in a different language
+3. Verify that technical terms are appropriately handled in {language}
+
+Your response must provide:
+1. is_target_language: Whether the text is actually in {language} (true/false)
+2. language_issues: If not in {language}, describe what language it appears to be in and any specific issues
+
+IMPORTANT: This check is only about the language used, not about translation quality or correctness.
+"""
+
 def get_translation_evaluation_prompt(source, translation, combined_commentary, verification, previous_feedback, language="English"):
     """Generate a prompt for evaluating a translation against commentary with language-specific feedback."""
     # Count the number of lines in the source
@@ -108,6 +127,11 @@ Previous Feedback:
 
 Verification Results:
 {verification}
+
+CRITICAL VERIFICATION STEPS:
+1. FIRST, verify the translation is actually written in {language}, not in another language
+2. If not in {language}, stop evaluation and report the language issues
+3. Only if confirmed to be in {language}, proceed with full evaluation
 
 CRITICAL STRUCTURAL REQUIREMENTS:
 - Source has approximately {source_lines} lines/segments - translation MUST have similar structure
@@ -138,11 +162,13 @@ Grade criteria:
 - "bad": Major divergence in content, structure, or poor {language} fluency
 
 For your response, provide:
-1. A grade (great/good/okay/bad)
-2. Whether the format matches the source structure (true/false)
-3. Specific formatting issues (if any)
-4. {language}-specific linguistic feedback (focus on naturalness, fluency, and accuracy)
-5. Detailed content feedback for improvements
+1. Whether the translation is actually in {language} (true/false)
+2. If not in {language}, details about language issues
+3. A grade (great/good/okay/bad)
+4. Whether the format matches the source structure (true/false)
+5. Specific formatting issues (if any)
+6. {language}-specific linguistic feedback (focus on naturalness, fluency, and accuracy)
+7. Detailed content feedback for improvements
 
 IMPORTANT: Your evaluation MUST be in {language}. Provide all feedback in {language} with specific suggestions for how to improve the translation's fluency and naturalness in {language}.
 
@@ -246,7 +272,7 @@ def get_glossary_extraction_prompt(source, combined_commentary, final_translatio
     
     # Customize commentary reference instructions based on source
     if commentary_source == "source_analysis":
-        commentary_reference_instr = f"Commentary reference (IMPORTANT: Since this translation was based on direct source analysis rather than traditional commentaries, indicate this by starting with 'From source analysis:' followed by relevant linguistic or structural insights in {language})"
+        commentary_reference_instr = f"Commentary reference (IMPORTANT: Since this translation was based on direct source analysis rather than traditional commentaries, indicate this by starting with 'From source analysis:'(in {language} !!) followed by relevant linguistic or structural insights in {language})"
     else:
         commentary_reference_instr = f"Commentary reference (IMPORTANT: This MUST be written in {language}, referencing traditional commentary explanations)"
     

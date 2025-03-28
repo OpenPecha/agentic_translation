@@ -84,17 +84,21 @@ The plain translation feature creates an accessible version of the text for read
 
 The evaluation system assesses translations on multiple dimensions:
 
-1. **Content Accuracy**: Verifies alignment with source text and commentaries
-2. **Structural Formatting**: Ensures the translation preserves the source format
-3. **Linguistic Fluency**: Checks that the translation sounds natural in the target language
+1. **Language Verification**: Checks if the translation is actually in the target language
+2. **Content Accuracy**: Verifies alignment with source text and commentaries
+3. **Structural Formatting**: Ensures the translation preserves the source format
+4. **Linguistic Fluency**: Checks that the translation sounds natural in the target language
 
 #### Verification Process
 
 Before grading, the evaluator performs a structured verification:
+- Validates that the text is in the correct target language
 - Checks for missing concepts from commentaries
 - Identifies potential misinterpretations
 - Verifies contextual accuracy
 - Assesses linguistic naturalness in the target language
+
+For more details on language verification, see [LANGUAGE_VERIFICATION.md](LANGUAGE_VERIFICATION.md).
 
 ### 4. Formatting Handler
 
@@ -143,6 +147,9 @@ The system is designed to support multiple target languages:
 2. **Language-specific Prompting**: Instructions emphasize natural expression in the target language
 3. **Linguistic Requirements**: Custom guidance for grammar, syntax, and idiomatic expression
 4. **Cultural Adaptation**: Ensures terminology is culturally appropriate
+5. **Language Verification**: Validates that translations are in the correct target language
+6. **Multilingual Examples**: Includes few-shot examples in various languages (English, Chinese, Italian, Russian)
+7. **Language-Aware Extraction**: Ensures extracted content is in the specified target language
 
 ## Workflow Integration
 
@@ -162,7 +169,8 @@ optimizer_builder.add_conditional_edges(
     route_translation,
     {
         "Accepted": "generate_glossary",
-        "Rejected + Feedback": "translation_generator"
+        "Rejected + Feedback": "translation_generator",
+        "Wrong Language": "translation_generator"  # New route for language issues
     }
 )
 ```
